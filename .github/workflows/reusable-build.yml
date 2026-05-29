@@ -75,7 +75,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     needs: build
-    if: ${{ inputs.deploy }}
+    if: ${{ inputs.deploy == true }}
     runs-on: ubuntu-latest
     environment:
       name: staging
@@ -111,7 +111,7 @@ jobs:
   deploy-production:
     name: Deploy to Production
     needs: deploy-staging
-    if: ${{ inputs.deploy }}
+    if: ${{ inputs.deploy == true }}
     runs-on: ubuntu-latest
     # The 'production' environment is configured in GitHub settings with:
     # 1. Required reviewers (manual approval gate)
