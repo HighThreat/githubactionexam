@@ -47,7 +47,7 @@ jobs:
     name: Frontend Validate
     needs: detect-changes
     if: ${{ needs.detect-changes.outputs.frontend == 'true' }}
-    uses: ./.github/workflows/reusable/reusable-validate.yml
+    uses: ./.github/workflows/reusable-validate.yml
     with:
       directory: frontend
 
@@ -55,7 +55,7 @@ jobs:
     name: Frontend Test
     needs: [detect-changes, validate-frontend]
     if: ${{ needs.detect-changes.outputs.frontend == 'true' }}
-    uses: ./.github/workflows/reusable/reusable-test.yml
+    uses: ./.github/workflows/reusable-test.yml
     with:
       directory: frontend
 
@@ -63,7 +63,7 @@ jobs:
     name: Frontend Build & Deploy
     needs: [detect-changes, test-frontend]
     if: ${{ needs.detect-changes.outputs.frontend == 'true' }}
-    uses: ./.github/workflows/reusable/reusable-build.yml
+    uses: ./.github/workflows/reusable-build.yml
     with:
       directory: frontend
       deploy: ${{ github.ref == 'refs/heads/main' }} # Only deploy to environments on main branch pushes
@@ -73,7 +73,7 @@ jobs:
     name: Backend Validate
     needs: detect-changes
     if: ${{ needs.detect-changes.outputs.backend == 'true' }}
-    uses: ./.github/workflows/reusable/reusable-validate.yml
+    uses: ./.github/workflows/reusable-validate.yml
     with:
       directory: backend
 
@@ -81,7 +81,7 @@ jobs:
     name: Backend Test
     needs: [detect-changes, validate-backend]
     if: ${{ needs.detect-changes.outputs.backend == 'true' }}
-    uses: ./.github/workflows/reusable/reusable-test.yml
+    uses: ./.github/workflows/reusable-test.yml
     with:
       directory: backend
 
@@ -89,7 +89,7 @@ jobs:
     name: Backend Build & Deploy
     needs: [detect-changes, test-backend]
     if: ${{ needs.detect-changes.outputs.backend == 'true' }}
-    uses: ./.github/workflows/reusable/reusable-build.yml
+    uses: ./.github/workflows/reusable-build.yml
     with:
       directory: backend
       deploy: ${{ github.ref == 'refs/heads/main' }} # Only deploy to environments on main branch pushes
