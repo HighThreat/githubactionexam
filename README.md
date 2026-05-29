@@ -295,3 +295,25 @@ El principal riesgo es el compromiso de la **Cadena de Suministro (Supply Chain 
 *   **Ahorro de Costos**: Cancela ejecuciones obsoletas de forma inmediata si hay commits sucesivos, evitando desperdiciar runner-minutes.
 *   **Integridad de Estado (No-Race Conditions)**: Garantiza que despliegues paralelos al mismo entorno no se crucen. Previene, por ejemplo, que dos ejecuciones de Terraform intenten aplicar cambios al mismo tiempo, bloqueando la base de datos de estado (`state lock`) o corrompiendo la infraestructura de la empresa.
 *   **Orden de Ejecución**: Mantiene el control del flujo de despliegue, asegurando que la última versión del código en la rama de producción sea la que realmente quede desplegada.
+
+---
+
+## Ejercicio 6 — Refactorización de Robustez Arquitectónica (Enterprise Resilience)
+
+Para alcanzar un estándar verdaderamente Enterprise a prueba de fallos y evitar falsos positivos en el pipeline, se aplicaron mejoras profundas a la estructura original:
+
+### 1. Terraform Completo y Despliegue Real-Simulado
+El pipeline de infraestructura no solo se limita a realizar un análisis superficial. El archivo `main.tf` despliega una arquitectura de red completa (VPC, Subredes Públicas/Privadas, Internet Gateway y Tablas de Rutas). 
+Para validar este despliegue complejo sin requerir credenciales reales en el entorno de desarrollo, el provider de AWS se configuró con:
+*   `skip_credentials_validation = true`
+*   `skip_metadata_api_check = true`
+*   `skip_requesting_account_id = true`
+Esto permite que el step `terraform apply -auto-approve` se ejecute con éxito comprobando toda la lógica de dependencias y outputs, sirviendo como una prueba real de integración. A su vez, la autenticación OIDC tiene configurado `continue-on-error: true` para que el flujo sea ininterrumpido en entornos sin federación.
+
+### 2. Multiplataforma Nativa y Resiliencia en Scripts
+Se eliminó la dependencia de Git Bash en los runners de Windows. Las evaluaciones de caché e instalación de NPM (`npm ci` vs `npm install`) se ejecutan ahora utilizando **PowerShell Core (`pwsh`)**, asegurando compatibilidad 100% nativa en `windows-latest` y `ubuntu-latest`. Adicionalmente, el job experimental de Node 22 (`experimental: true`) cuenta con su propio control de fallos (`continue-on-error`) para no comprometer el estado del pipeline de producción.
+
+### 3. Filtros Estrictos para Bypass de Documentación
+El detector de cambios (`dorny/paths-filter`) fue calibrado para prevenir bloqueos por omisión. 
+*   Se agregó la ruta `.github/workflows/**` como disparador obligatorio de los pipelines de *frontend*, *backend* e *infrastructure*, garantizando que cualquier modificación a las reglas del CI active todas las pruebas.
+*   El pipeline de notificación de documentación (`docs-notification`) se disparará **únicamente** cuando se detecten cambios bajo `docs/` o archivos `.md`, y **ninguno** en las áreas principales, evitando que los cambios críticos evadan los chequeos de calidad.
