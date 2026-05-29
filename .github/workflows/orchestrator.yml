@@ -47,6 +47,8 @@ jobs:
     name: Frontend Validate
     needs: detect-changes
     if: ${{ needs.detect-changes.outputs.frontend == 'true' }}
+    permissions:
+      contents: read
     uses: ./.github/workflows/reusable-validate.yml
     with:
       directory: frontend
@@ -55,6 +57,8 @@ jobs:
     name: Frontend Test
     needs: [detect-changes, validate-frontend]
     if: ${{ needs.detect-changes.outputs.frontend == 'true' }}
+    permissions:
+      contents: read
     uses: ./.github/workflows/reusable-test.yml
     with:
       directory: frontend
@@ -63,6 +67,9 @@ jobs:
     name: Frontend Build & Deploy
     needs: [detect-changes, test-frontend]
     if: ${{ needs.detect-changes.outputs.frontend == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/reusable-build.yml
     with:
       directory: frontend
@@ -73,6 +80,8 @@ jobs:
     name: Backend Validate
     needs: detect-changes
     if: ${{ needs.detect-changes.outputs.backend == 'true' }}
+    permissions:
+      contents: read
     uses: ./.github/workflows/reusable-validate.yml
     with:
       directory: backend
@@ -81,6 +90,8 @@ jobs:
     name: Backend Test
     needs: [detect-changes, validate-backend]
     if: ${{ needs.detect-changes.outputs.backend == 'true' }}
+    permissions:
+      contents: read
     uses: ./.github/workflows/reusable-test.yml
     with:
       directory: backend
@@ -89,6 +100,9 @@ jobs:
     name: Backend Build & Deploy
     needs: [detect-changes, test-backend]
     if: ${{ needs.detect-changes.outputs.backend == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/reusable-build.yml
     with:
       directory: backend
