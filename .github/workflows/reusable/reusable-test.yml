@@ -1,0 +1,87 @@
+name: Reusable Testing
+
+on:
+  workflow_call:
+    inputs:
+      directory:
+        description: 'The directory of the component to test'
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }} - Node ${{ matrix.node-version }})
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node-version: [18, 20, 22]
+        include:
+          - os: ubuntu-latest
+            node-version: 22
+            experimental: true # Special configuration for experimental runs
+        exclude:
+          - os: windows-latest
+            node-version: 18 # GlobalFin policy excludes Windows for legacy node-18 to save costs
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6012dfb03940db23b4401e9972ad06e104465b0a # v4.0.3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: '${{ inputs.directory }}/package-lock.json'
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+        working-directory: ${{ inputs.directory }}
+        shell: bash
+
+      - name: Run Tests
+        id: run_tests
+        run: npm run test
+        working-directory: ${{ inputs.directory }}
+        shell: bash
+
+      - name: Create Mock Test Report
+        if: always()
+        run: |
+          mkdir -p build/reports
+          echo "Test report for GlobalFin Services - ${{ inputs.directory }}" > build/reports/test-results.txt
+          echo "OS: ${{ matrix.os }} | Node: ${{ matrix.node-version }}" >> build/reports/test-results.txt
+          echo "Status: ${{ job.status }}" >> build/reports/test-results.txt
+        working-directory: ${{ inputs.directory }}
+        shell: bash
+
+      - name: Upload Test Artifacts
+        if: always()
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: test-results-${{ inputs.directory }}-${{ matrix.os }}-node-${{ matrix.node-version }}
+          path: ${{ inputs.directory }}/build/reports/test-results.txt
+          retention-days: 5
+
+      - name: Generate Markdown Job Summary
+        if: always()
+        run: |
+          echo "### Test Execution Summary :test_tube:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Platform**: ${{ matrix.os }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Node.js Version**: ${{ matrix.node-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Directory**: \`${{ inputs.directory }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status == 'success' && '✅ SUCCESS' || '❌ FAILED' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Experimental**: ${{ matrix.experimental || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp**: $(date -u)" >> $GITHUB_STEP_SUMMARY
+        shell: bash

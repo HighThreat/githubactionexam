@@ -1,0 +1,41 @@
+name: Reusable Validation
+
+on:
+  workflow_call:
+    inputs:
+      directory:
+        description: 'The directory of the component to validate'
+        required: true
+        type: string
+
+permissions: {} # Global permissions set to none (least privilege)
+
+jobs:
+  validate:
+    name: Lint & Validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # Specific job permissions
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7 (pinned to commit SHA)
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6012dfb03940db23b4401e9972ad06e104465b0a # v4.0.3 (pinned to commit SHA)
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: '${{ inputs.directory }}/package-lock.json'
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+        working-directory: ${{ inputs.directory }}
+
+      - name: Run Lint
+        run: npm run lint
+        working-directory: ${{ inputs.directory }}

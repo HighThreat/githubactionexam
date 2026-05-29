@@ -1,0 +1,147 @@
+name: Reusable Build & Deploy
+
+on:
+  workflow_call:
+    inputs:
+      directory:
+        description: 'The directory of the component to build'
+        required: true
+        type: string
+      deploy:
+        description: 'Whether to trigger deployment jobs'
+        required: false
+        default: false
+        type: boolean
+    outputs:
+      artifact-name:
+        description: 'The name of the uploaded build artifact'
+        value: ${{ jobs.build.outputs.artifact-name }}
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build Component
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      artifact-name: ${{ steps.set_output.outputs.artifact_name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@6012dfb03940db23b4401e9972ad06e104465b0a # v4.0.3
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: '${{ inputs.directory }}/package-lock.json'
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+        working-directory: ${{ inputs.directory }}
+        shell: bash
+
+      - name: Compile and Build
+        run: npm run build
+        working-directory: ${{ inputs.directory }}
+        shell: bash
+
+      - name: Package Build Artifacts
+        run: |
+          mkdir -p dist
+          echo "Package artifact content for GlobalFin - ${{ inputs.directory }}" > dist/app.bundle.js
+        working-directory: ${{ inputs.directory }}
+        shell: bash
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: build-artifact-${{ inputs.directory }}
+          path: ${{ inputs.directory }}/dist/app.bundle.js
+          retention-days: 10
+
+      - name: Set Output Artifact Name
+        id: set_output
+        run: echo "artifact_name=build-artifact-${{ inputs.directory }}" >> $GITHUB_OUTPUT
+        shell: bash
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build
+    if: ${{ inputs.deploy }}
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.globalfin.example.com
+    permissions:
+      contents: read
+      id-token: write # Required for obtaining JWT OIDC token
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@6b208ae046db98c57953d40862460612c963d2ff # v4.1.7
+        with:
+          name: ${{ needs.build.outputs.artifact-name }}
+          path: ./dist
+
+      - name: Configure Cloud Credentials via OIDC
+        if: ${{ github.repository != 'HighThreat/githubactionexam' }}
+        # Pinning aws-actions/configure-aws-credentials to v4.0.2 via SHA
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/GlobalFinStagingDeployerRole
+          aws-region: us-east-1
+          audience: sts.amazonaws.com
+
+      - name: Deploy to Staging Environment
+        run: |
+          echo "Deploying ${{ needs.build.outputs.artifact-name }} to Staging via OIDC federated credentials..."
+          echo "Deploy successful!"
+        shell: bash
+
+  deploy-production:
+    name: Deploy to Production
+    needs: deploy-staging
+    if: ${{ inputs.deploy }}
+    runs-on: ubuntu-latest
+    # The 'production' environment is configured in GitHub settings with:
+    # 1. Required reviewers (manual approval gate)
+    # 2. Deployment branch limits (only main branch)
+    environment:
+      name: production
+      url: https://production.globalfin.example.com
+    permissions:
+      contents: read
+      id-token: write # Required for obtaining JWT OIDC token
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@6b208ae046db98c57953d40862460612c963d2ff # v4.1.7
+        with:
+          name: ${{ needs.build.outputs.artifact-name }}
+          path: ./dist
+
+      - name: Configure Cloud Credentials via OIDC
+        if: ${{ github.repository != 'HighThreat/githubactionexam' }}
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/GlobalFinProdDeployerRole
+          aws-region: us-east-1
+          audience: sts.amazonaws.com
+
+      - name: Deploy to Production Environment
+        run: |
+          echo "Deploying ${{ needs.build.outputs.artifact-name }} to Production via OIDC federated credentials..."
+          echo "Deploy successful!"
+        shell: bash

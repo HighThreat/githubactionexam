@@ -1,0 +1,180 @@
+name: GlobalFin Enterprise Orchestrator
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+# Optimization: Prevent concurrent deployment runs on the same branch.
+# Cancel previous running builds on the same branch to save runner minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {} # Start with zero global permissions
+
+jobs:
+  detect-changes:
+    name: Detect Component Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read # Required to read PR file lists
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      infrastructure: ${{ steps.filter.outputs.infrastructure }}
+      docs_only: ${{ steps.filter.outputs.docs_only }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      # Selective execution logic using paths filter
+      - name: Path Filter Check
+        id: filter
+        uses: dorny/paths-filter@de9121bfa0d17df3e61356f017ef73fb37ff20c2 # v3.0.2
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+            backend:
+              - 'backend/**'
+            infrastructure:
+              - 'infrastructure/**'
+            docs_only:
+              - '!frontend/**'
+              - '!backend/**'
+              - '!infrastructure/**'
+              - 'docs/**'
+              - '*.md'
+
+  # FRONTEND PIPELINE FLOW
+  validate-frontend:
+    name: Frontend Validate
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.frontend == 'true' }}
+    uses: ./.github/workflows/reusable/reusable-validate.yml
+    with:
+      directory: frontend
+
+  test-frontend:
+    name: Frontend Test
+    needs: [detect-changes, validate-frontend]
+    if: ${{ needs.detect-changes.outputs.frontend == 'true' }}
+    uses: ./.github/workflows/reusable/reusable-test.yml
+    with:
+      directory: frontend
+
+  build-frontend:
+    name: Frontend Build & Deploy
+    needs: [detect-changes, test-frontend]
+    if: ${{ needs.detect-changes.outputs.frontend == 'true' }}
+    uses: ./.github/workflows/reusable/reusable-build.yml
+    with:
+      directory: frontend
+      deploy: ${{ github.ref == 'refs/heads/main' }} # Only deploy to environments on main branch pushes
+
+  # BACKEND PIPELINE FLOW
+  validate-backend:
+    name: Backend Validate
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.backend == 'true' }}
+    uses: ./.github/workflows/reusable/reusable-validate.yml
+    with:
+      directory: backend
+
+  test-backend:
+    name: Backend Test
+    needs: [detect-changes, validate-backend]
+    if: ${{ needs.detect-changes.outputs.backend == 'true' }}
+    uses: ./.github/workflows/reusable/reusable-test.yml
+    with:
+      directory: backend
+
+  build-backend:
+    name: Backend Build & Deploy
+    needs: [detect-changes, test-backend]
+    if: ${{ needs.detect-changes.outputs.backend == 'true' }}
+    uses: ./.github/workflows/reusable/reusable-build.yml
+    with:
+      directory: backend
+      deploy: ${{ github.ref == 'refs/heads/main' }} # Only deploy to environments on main branch pushes
+
+  # INFRASTRUCTURE PIPELINE FLOW (Terraform)
+  validate-infra:
+    name: Infrastructure Validation
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.infrastructure == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@a1502cd9e5637e1ae21db7c0528e378edd254ff7 # v3.0.0
+        with:
+          terraform_version: "1.7.0"
+
+      - name: Terraform Format & Init
+        run: |
+          cd infrastructure
+          terraform fmt -check
+          terraform init -backend=false
+
+      - name: Terraform Validate
+        run: |
+          cd infrastructure
+          terraform validate
+
+  deploy-infra:
+    name: Infrastructure Deploy
+    needs: [detect-changes, validate-infra]
+    # Only deploy infra updates when merging/pushing to the main branch
+    if: ${{ needs.detect-changes.outputs.infrastructure == 'true' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    environment: production # Requires environment rules (approvals, branch controls)
+    permissions:
+      contents: read
+      id-token: write # AWS OIDC IAM federation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Configure Cloud Credentials via OIDC
+        if: ${{ github.repository != 'HighThreat/githubactionexam' }}
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/GlobalFinProdInfraDeployerRole
+          aws-region: us-east-1
+          audience: sts.amazonaws.com
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@a1502cd9e5637e1ae21db7c0528e378edd254ff7 # v3.0.0
+        with:
+          terraform_version: "1.7.0"
+
+      - name: Terraform Apply
+        run: |
+          cd infrastructure
+          terraform init -backend=false
+          echo "Applying infrastructure changes using AWS OIDC Federated IAM Identity..."
+          # In real production, this would be: terraform apply -auto-approve
+        shell: bash
+
+  # DOCS PIPELINE BYPASS FLOW (Visual Confirmation step for when only documentation changes)
+  docs-notification:
+    name: Skip Docs CI Checks
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.docs_only == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Skip Notification
+        run: |
+          echo "Only documentation or MD files were modified. Skipping code tests and compilation builds."
+          echo "This run completes immediately to save execution minutes."
+        shell: bash
