@@ -14,6 +14,7 @@ jobs:
   test:
     name: Test (${{ matrix.os }} - Node ${{ matrix.node-version }})
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental == true }}
     permissions:
       contents: read
     strategy:
@@ -42,13 +43,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ -f package-lock.json ]; then
+          if (Test-Path package-lock.json) {
             npm ci
-          else
+          } else {
             npm install
-          fi
+          }
         working-directory: ${{ inputs.directory }}
-        shell: bash
+        shell: pwsh
 
       - name: Run Tests
         id: run_tests

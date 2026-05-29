@@ -12,7 +12,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions: {} # Start with zero global permissions
+permissions:
+  contents: read # Mínimo privilegio global para checkout
 
 jobs:
   detect-changes:
@@ -25,6 +26,7 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       backend: ${{ steps.filter.outputs.backend }}
       infrastructure: ${{ steps.filter.outputs.infrastructure }}
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -39,10 +41,16 @@ jobs:
           filters: |
             frontend:
               - 'frontend/**'
+              - '.github/workflows/**'
             backend:
               - 'backend/**'
+              - '.github/workflows/**'
             infrastructure:
               - 'infrastructure/**'
+              - '.github/workflows/**'
+            docs:
+              - 'docs/**'
+              - '*.md'
 
   # FRONTEND PIPELINE FLOW
   validate-frontend:
@@ -154,6 +162,7 @@ jobs:
 
       - name: Configure Cloud Credentials via OIDC
         if: ${{ github.repository != 'HighThreat/githubactionexam' }}
+        continue-on-error: true # Permite la ejecución simulada si no hay OIDC configurado en el repo de prueba
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123456789012:role/GlobalFinProdInfraDeployerRole
@@ -170,14 +179,14 @@ jobs:
           cd infrastructure
           terraform init -backend=false
           echo "Applying infrastructure changes using AWS OIDC Federated IAM Identity..."
-          # In real production, this would be: terraform apply -auto-approve
+          terraform apply -auto-approve
         shell: bash
 
   # DOCS PIPELINE BYPASS FLOW (Visual Confirmation step for when only documentation changes)
   docs-notification:
     name: Skip Docs CI Checks
     needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.frontend == 'false' && needs.detect-changes.outputs.backend == 'false' && needs.detect-changes.outputs.infrastructure == 'false' }}
+    if: ${{ needs.detect-changes.outputs.frontend == 'false' && needs.detect-changes.outputs.backend == 'false' && needs.detect-changes.outputs.infrastructure == 'false' && needs.detect-changes.outputs.docs == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

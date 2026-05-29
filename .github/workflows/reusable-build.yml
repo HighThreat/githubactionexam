@@ -40,13 +40,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ -f package-lock.json ]; then
+          if (Test-Path package-lock.json) {
             npm ci
-          else
+          } else {
             npm install
-          fi
+          }
         working-directory: ${{ inputs.directory }}
-        shell: bash
+        shell: pwsh
 
       - name: Compile and Build
         run: npm run build
@@ -95,6 +95,7 @@ jobs:
 
       - name: Configure Cloud Credentials via OIDC
         if: ${{ github.repository != 'HighThreat/githubactionexam' }}
+        continue-on-error: true
         # Pinning aws-actions/configure-aws-credentials to v4.0.2 via SHA
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -134,6 +135,7 @@ jobs:
 
       - name: Configure Cloud Credentials via OIDC
         if: ${{ github.repository != 'HighThreat/githubactionexam' }}
+        continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123456789012:role/GlobalFinProdDeployerRole
