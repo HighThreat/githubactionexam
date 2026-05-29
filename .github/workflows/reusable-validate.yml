@@ -18,10 +18,10 @@ jobs:
       contents: read # Specific job permissions
     steps:
       - name: Checkout code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7 (pinned to commit SHA)
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@6012dfb03940db23b4401e9972ad06e104465b0a # v4.0.3 (pinned to commit SHA)
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'

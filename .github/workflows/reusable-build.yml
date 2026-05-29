@@ -29,10 +29,10 @@ jobs:
       artifact-name: ${{ steps.set_output.outputs.artifact_name }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@6012dfb03940db23b4401e9972ad06e104465b0a # v4.0.3
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -61,7 +61,7 @@ jobs:
         shell: bash
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@v4
         with:
           name: build-artifact-${{ inputs.directory }}
           path: ${{ inputs.directory }}/dist/app.bundle.js
@@ -85,10 +85,10 @@ jobs:
       id-token: write # Required for obtaining JWT OIDC token
     steps:
       - name: Checkout code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
 
       - name: Download Build Artifact
-        uses: actions/download-artifact@6b208ae046db98c57953d40862460612c963d2ff # v4.1.7
+        uses: actions/download-artifact@v4
         with:
           name: ${{ needs.build.outputs.artifact-name }}
           path: ./dist
@@ -96,7 +96,7 @@ jobs:
       - name: Configure Cloud Credentials via OIDC
         if: ${{ github.repository != 'HighThreat/githubactionexam' }}
         # Pinning aws-actions/configure-aws-credentials to v4.0.2 via SHA
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123456789012:role/GlobalFinStagingDeployerRole
           aws-region: us-east-1
@@ -124,17 +124,17 @@ jobs:
       id-token: write # Required for obtaining JWT OIDC token
     steps:
       - name: Checkout code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
 
       - name: Download Build Artifact
-        uses: actions/download-artifact@6b208ae046db98c57953d40862460612c963d2ff # v4.1.7
+        uses: actions/download-artifact@v4
         with:
           name: ${{ needs.build.outputs.artifact-name }}
           path: ./dist
 
       - name: Configure Cloud Credentials via OIDC
         if: ${{ github.repository != 'HighThreat/githubactionexam' }}
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123456789012:role/GlobalFinProdDeployerRole
           aws-region: us-east-1

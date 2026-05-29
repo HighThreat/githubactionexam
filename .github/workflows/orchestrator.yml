@@ -27,14 +27,14 @@ jobs:
       infrastructure: ${{ steps.filter.outputs.infrastructure }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       # Selective execution logic using paths filter
       - name: Path Filter Check
         id: filter
-        uses: dorny/paths-filter@de9121bfa0d17df3e61356f017ef73fb37ff20c2 # v3.0.2
+        uses: dorny/paths-filter@v3
         with:
           filters: |
             frontend:
@@ -120,10 +120,10 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@a1502cd9e5637e1ae21db7c0528e378edd254ff7 # v3.0.0
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.7.0"
 
@@ -150,18 +150,18 @@ jobs:
       id-token: write # AWS OIDC IAM federation
     steps:
       - name: Checkout code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
 
       - name: Configure Cloud Credentials via OIDC
         if: ${{ github.repository != 'HighThreat/githubactionexam' }}
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::123456789012:role/GlobalFinProdInfraDeployerRole
           aws-region: us-east-1
           audience: sts.amazonaws.com
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@a1502cd9e5637e1ae21db7c0528e378edd254ff7 # v3.0.0
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.7.0"
 
